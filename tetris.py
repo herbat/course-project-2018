@@ -1,9 +1,12 @@
+import os
+import cv2
+import copy
 import math
 import time
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+from PIL import Image
 from copy import deepcopy
 from itertools import count
 from collections import namedtuple
@@ -13,13 +16,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from torch.optim import SGD
 from torch.autograd import Variable
 
 WIDTH  = 8
 HEIGHT = 12
 
 #HYPERPARAMETERS
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
@@ -227,33 +231,33 @@ points = {
 
 # ---------------------------------------------------------------------
 # NN PARTS ------------------------------------------------------------
-
-FloatTensor = torch.FloatTensor
-LongTensor  = torch.LongTensor
-ByteTensor  = torch.ByteTensor
+use_cuda = torch.cuda.is_available()
+FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
+LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
+ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
 Tensor = FloatTensor
 
 
 class ReplayMemory(object):
 
     def __init__(self, capacity):
-        try:
-            fr = open('training_data.npy', 'rb')
-            x = np.load(fr)
-            x = x.tolist()
-            self.memory = []
-            for i in x:
-                state = convert_state(i[0])
-                action = LongTensor([[i[1]]])
-                next_state = convert_state(i[2])
-                reward = Tensor([i[3]])
-                # print(type(state), type(action), type(next_state), type(reward))
-                t = Transition(state, action, next_state, reward)
-                self.memory.append(t)
-
-        except Exception as e:
-            print('kek')
-            self.memory = []
+        # try:
+        #     fr = open('training_data.npy', 'rb')
+        #     x = np.load(fr)
+        #     x = x.tolist()
+        #     self.memory = []
+        #     for i in x:
+        #         state = convert_state(i[0])
+        #         action = LongTensor([[i[1]]])
+        #         next_state = convert_state(i[2])
+        #         reward = Tensor([i[3]])
+        #         # print(type(state), type(action), type(next_state), type(reward))
+        #         t = Transition(state, action, next_state, reward)
+        #         self.memory.append(t)
+        #
+        # except Exception as e:
+        print('kek')
+        self.memory = []
 
         self.capacity = capacity
         self.position = len(self.memory)
@@ -281,6 +285,7 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
         self.conv1 = nn.Conv2d(1, 16, kernel_size=4, stride=2)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2)
+        self.index = 0
         # self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=2)
         # self.lin1  = nn.Linear(, 64)
         self.fc = nn.Linear(64, 5)
@@ -291,6 +296,9 @@ class DQN(nn.Module):
         # x = F.relu(self.conv3(x))
         # x = F.relu(self.lin1(x.view(x.size(0), -1)))
         return self.fc(x.view(x.size(0), -1))
+
+    def get_weights(self):
+        return self.conv2.weight.data.var(1)
 
 
 def select_action(state):
@@ -354,14 +362,17 @@ def convert_state(state):
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
-
+# ---------------------------------------------------------------------
 
 # INIT ----------------------------------------------------------------
 
 game = Tetris()
 model = DQN()
 
-num_episodes = 1000
+if use_cuda:
+    model.cuda()
+
+num_episodes = 10
 episode_points = []
 loss = nn.MSELoss()
 optimizer = optim.RMSprop(model.parameters(), lr=0.01)
@@ -390,6 +401,7 @@ steps_done = 0
 
 last_sync = 0
 starttime = time.time()
+c1w_last = model.get_weights()
 for i_episode in range(num_episodes):
     # noinspection PyRedeclaration
     state = convert_state(game.show())
