@@ -49,7 +49,7 @@ class Tetris():
         self.height = HEIGHT
         self.speed  = 2
         self.cstep  = 0
-        self.state  = np.zeros((self.height, self.width), np.float32)
+        self.state  = np.zeros((self.height, self.width))
         self.nomove = False
         self.reward = 0
         self.points = 0
