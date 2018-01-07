@@ -7,19 +7,24 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from copy import deepcopy
+from functools import reduce
 from collections import namedtuple
 from random import randint as randi
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.autograd import Variable
 
 import torch
 Tensor = torch.FloatTensor
 
-
-stdscr = curses.initscr()
+#stdscr = curses.initscr()
 
 WIDTH  = 8
-HEIGHT = 12
-
+HEIGHT = 16
+SPEED  = 4
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
@@ -45,10 +50,11 @@ class Tetris():
     def __init__(self):
         self.width  = WIDTH
         self.height = HEIGHT
-        self.speed  = 10
+        self.speed  = SPEED
         self.cstep  = 0
         self.state  = np.zeros((self.height, self.width), np.uint8)
         self.nomove = False
+        self.reward = 0
         self.points = 0
         self.tmppts = 0
         self.stone  = tetris_shapes[randi(0, 6)]
@@ -60,23 +66,24 @@ class Tetris():
         global points
         self.tmppts = self.points
         actions = {
-            0: Direction(0,  0, 0),
-            1: Direction(0,  1, 0),
-            2: Direction(0, -1, 0),
-            3: Direction(1,  0, 0),
-            4: Direction(0,  0, 1)
+            0: Direction(0,  1, 0),
+            1: Direction(0, -1, 0),
+            2: Direction(0,  0, 1),
+            3: Direction(1,  0, 0)
         }
         if self.game_over: return self.points, True
         self.remove_lines()
         # print('Steppin da {}th step'.format(self.cstep+1))
         self.stone_dir = actions[action]
         self.cstep += 1
-        if action == 3: self.points += points['drop']
         if self.cstep%self.speed == 0: #move one down every x steps
-            self.stone_dir.vertical = 1
+            self.stone_dir = actions[3]
+            self.points += 1
             if self.nomove and self.check_collision(self.stone, self.stone_pos, actions[3]):
                 self.insert_stone()
-                return self.points-self.tmppts, False
+                r = self.reward - self.getreward()
+                self.reward = self.getreward()
+                return self.points - self.tmppts + r, False
 
 
         self.move()
@@ -105,14 +112,12 @@ class Tetris():
                 if (not(cy + o_y < self.height and cx + o_x < self.width and
                         cy + o_y >= 0          and cx + o_x >= 0)
                     or (cell and self.state[cy + o_y][cx + o_x])):
-                    print('collision')
                     return True
 
         return False
 
     def insert_stone(self):
-        print('Insertin da stone')
-
+        if not self.check_collision(self.stone, self.stone_pos, Direction(1, 0, 0)): self.nomove = False; self.move(); return False
         o_x = self.stone_pos.x
         o_y = self.stone_pos.y
 
@@ -122,6 +127,7 @@ class Tetris():
 
         self.nomove = False
         self.new_stone()
+        return True
 
     def rotate_clockwise(self, shape):
 
@@ -131,7 +137,6 @@ class Tetris():
 
     def show(self):
         if self.game_over: return self.state
-        # print('Showing image')
         o_x = self.stone_pos.x
         o_y = self.stone_pos.y
 
@@ -141,15 +146,9 @@ class Tetris():
             for cx, cell in enumerate(row):
                 state[cy + o_y][cx + o_x] += cell
 
-        # for i in state:
-        #     for j in i:
-        #         print(j, end=' ') if j > 0 else print('.', end=' ')
-        #     print()
-
         return state
 
     def new_stone(self):
-        print('Puttin a new stone')
 
         shape = tetris_shapes[randi(0, 6)]
         pos   = Position(2,  0)
@@ -173,6 +172,7 @@ class Tetris():
 
         if len(removables) > 0:
             self.state = np.delete(self.state, removables, 0)
+            print('{} line(s) removed'.format(len(removables)))
             for _ in removables:
                 self.state = np.insert(self.state, 0, 0, axis=0)
 
@@ -180,10 +180,42 @@ class Tetris():
         if len(removables) == 4: self.points += points['tetris']
         else: self.points += len(removables) * points['line']
 
+    def roughness(self):
+        peaks = self.getpeaks()
+        res = 0
+        prev = -1
+        for i in peaks:
+            if prev < 0: prev = i
+            else: res += abs(prev-i); prev = i
+        return res
+
+    def holes(self):
+        result = 0
+        peaks = self.getpeaks()
+        for i, row in enumerate(self.state):
+            for j, cell in enumerate(row):
+                if cell == 0 and HEIGHT-i < peaks[j]: result += 1
+        return result
+
+    def c_height(self):
+        return reduce((lambda x, y: x+y), self.getpeaks())
+
+    def m_height(self):
+        return max(self.getpeaks())
+
+    def getpeaks(self):
+        peaks = np.zeros(WIDTH)
+        for i, row in enumerate(self.state.T):
+            try: peaks[i] = HEIGHT - next((i for i, x in enumerate(row) if x), None)
+            except Exception: peaks[i] = 0
+        return peaks
+
+    def getreward(self):
+        print('R:{} Ho:{} He:{} MH:{}'.format(self.roughness(), self.holes(), self.c_height(), self.m_height()))
+        return 0 - self.roughness()+self.holes()+self.c_height()+self.m_height()
 
 
-
-tetris_shapes = [
+tetris_shapes_fancy = [
     [[1, 1, 1],
      [0, 1, 0]],
 
@@ -205,6 +237,28 @@ tetris_shapes = [
      [7, 7]]
 ]
 
+tetris_shapes = [
+    [[1, 1, 1],
+     [0, 1, 0]],
+
+    [[0, 1, 1],
+     [1, 1, 0]],
+
+    [[1, 1, 0],
+     [0, 1, 1]],
+
+    [[1, 0, 0],
+     [1, 1, 1]],
+
+    [[0, 0, 1],
+     [1, 1, 1]],
+
+    [[1, 1, 1, 1]],
+
+    [[1, 1],
+     [1, 1]]
+]
+
 points = {
     'drop'  : 10,
     'line'  : 100,
@@ -219,7 +273,6 @@ im = plt.imshow(np.random.rand(HEIGHT, WIDTH), animated=True)
 
 def convert_state(state):
     return Tensor(np.expand_dims(np.expand_dims(state, axis=0), axis=0))
-
 
 def save_game(db):
     try:
@@ -237,23 +290,49 @@ def save_game(db):
         print('Saving {0} moves...'.format(len(db)))
         np.save('training_data.npy', db)
 
+class DQN(nn.Module):
+
+    def __init__(self):
+        super(DQN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=4, stride=2)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2)
+        self.index = 0
+        # self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=2)
+        # self.lin1  = nn.Linear(, 64)
+        self.fc = nn.Linear(96, 3)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        # x = F.relu(self.conv3(x))
+        # x = F.relu(self.lin1(x.view(x.size(0), -1)))
+        return F.softmax(self.fc(x.view(x.size(0), -1)))
+
+    def get_weights(self):
+        return self.conv2.weight.data.var(1)
+
+
 database = []
+
+model = torch.load('../dqn_checkpoint.pth')
 
 def update(*args):
     state = game.show()
-    inp = stdscr.getch()
-    action = 0
-    if inp == ord('w'): action = 4
-    elif inp == ord('a'): action = 2
-    elif inp == ord('s'): action = 3
-    elif inp == ord('d'): action = 1
+    # inp = stdscr.getch()
+    # action = 0
+    # if inp == ord('w'): action = 4
+    # elif inp == ord('a'): action = 2
+    # elif inp == ord('s'): action = 3
+    # elif inp == ord('d'): action = 1
 
+    action = model(Variable(convert_state(state), volatile=True).type(Tensor)).data
+    print(action)
+    action = action.max(1)[1].view(1, 1).tolist()[0][0]
     reward, done = game.step(action)
-    print(reward)
     next_state = game.show()
-    database.append(Transition(state, action, next_state, reward))
-    if done: ani.event_source.stop(); save_game(database); return
-    im.set_array(next_state/7)
+    # database.append(Transition(state, action, next_state, reward))
+    if done: ani.event_source.stop(); return
+    im.set_array(next_state)
     return im,
 
 ani = animation.FuncAnimation(fig, update, interval=50, blit=True)
