@@ -385,7 +385,7 @@ Transition = namedtuple('Transition',
 # INIT ----------------------------------------------------------------
 
 game = Tetris()
-model = DQN() # torch.load('dqn_chechpoint.pth')
+model = torch.load('dqn_chechpoint.pth')
 
 if use_cuda:
     model.cuda()
