@@ -219,8 +219,8 @@ for i_episode in range(num_episodes):
             next_state = cur_state-prepro(observation)
         else:
             next_state = None
-        print(type(cur_state), type(next_state))
-        memory.push(convert_state(cur_state), action, convert_state(next_state), reward)
+        
+        memory.push(convert_state(cur_state), action, convert_state(next_state) if type(next_state) != type(None) else None, reward)
         prev_state = cur_state
         cur_state = next_state
 
