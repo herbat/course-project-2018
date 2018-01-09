@@ -205,7 +205,7 @@ xs, hs, dlogps, drs = [], [], [], []
 reward_sum = 0
 num_episodes = 5000
 episode_points = []
-optimizer = optim.RMSprop(model.parameters(), lr=0.0001)
+optimizer = optim.RMSprop(model.parameters(), lr=0.00001)
 record = False
 
 for i_episode in range(num_episodes):
@@ -215,6 +215,7 @@ for i_episode in range(num_episodes):
     if i_episode % 1 == 0: record = True
     tmp_memories =[]
     for t in count():
+        env.render()
         action = select_action(convert_state(prev_state-cur_state))
         observation, reward, done, info = env.step(action[0][0]+2)
         reward = Tensor([reward])
