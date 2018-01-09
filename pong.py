@@ -19,7 +19,7 @@ LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
 Tensor = FloatTensor
 
-path = '/'
+path = '/home/itkdeeplearn/herat1/pong_dqn.pth'
 
 # hyperparameters
 # H = 200  # number of hidden layer neurons
@@ -168,7 +168,7 @@ def prepro(I):
     I[I == 144] = 0  # erase background (background type 1)
     I[I == 109] = 0  # erase background (background type 2)
     I[I != 0] = 1  # everything else (paddles, ball) just set to 1
-    return I.astype(np.float)
+    return I.astype(np.float32)
 
 #
 # def plot_points(ep):

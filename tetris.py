@@ -2,7 +2,7 @@ import math
 import time
 import random
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from copy import deepcopy
 from itertools import count
 from functools import reduce
@@ -19,7 +19,7 @@ from torch.autograd import Variable
 WIDTH  = 8
 HEIGHT = 16
 
-#HYPERPARAMETERS
+# HYPERPARAMETERS
 BATCH_SIZE = 64
 GAMMA = 0.99
 EPS_START = 0.99
@@ -354,6 +354,7 @@ def optimize_model():
     state_batch  = Variable(torch.cat(batch.state))
     action_batch = Variable(torch.cat(batch.action))
     reward_batch = Variable(torch.cat(batch.reward))
+    print(np.shape(state_batch), np.shape(action_batch))
     state_action_values = model(state_batch).gather(1, action_batch)
     next_state_values = Variable(torch.zeros(BATCH_SIZE).type(Tensor))
     next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
