@@ -92,9 +92,9 @@ def select_action(state):
     eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
     if sample > eps_threshold:
-        pred = model(Variable(state, volatile=True).type(FloatTensor)).data.max(1)[1].view(1, 1)
+        pred = model(Variable(state, volatile=True).type(FloatTensor)).data
         if steps_done % 10000 == 0: print(pred)
-        return pred
+        return pred.max(1)[1].view(1, 1)
     else:
         return LongTensor([[random.randrange(2)]])
 
