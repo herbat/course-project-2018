@@ -199,7 +199,7 @@ observation = env.reset()
 prev_state = None #previous screen
 xs, hs, dlogps, drs = [], [], [], []
 reward_sum = 0
-num_episodes = 10000
+num_episodes = 5000
 episode_points = []
 optimizer = optim.RMSprop(model.parameters(), lr=0.01)
 record = False
@@ -225,13 +225,12 @@ for i_episode in range(num_episodes):
         cur_state = next_state
 
         optimize_model()
-
+        reward_sum += reward[0]
         if done:
-            reward_sum += reward[0]
+            episode_points.append(reward_sum)
             if record:
                 print('Reward sum over 20 games: {}, episode {}'.format(reward_sum, i_episode))
                 record = False
-                episode_points.append(reward_sum)
                 reward_sum = 0
                 # plot_points()
 
