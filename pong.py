@@ -224,7 +224,7 @@ for i_episode in range(num_episodes):
         prev_state = cur_state
         cur_state = next_state
 
-        optimize_model()
+        if reward[0] != 0: optimize_model()
         reward_sum += reward[0]
         if done:
             episode_points.append(reward_sum)
