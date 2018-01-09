@@ -121,6 +121,7 @@ def optimize_model():
 
 
 def convert_state(state):
+    print(type(state))
     return Tensor(np.expand_dims(np.expand_dims(state, axis=0), axis=0))
 
 
