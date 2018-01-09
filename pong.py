@@ -214,13 +214,14 @@ for i_episode in range(num_episodes):
         action = select_action(convert_state(prev_state-cur_state))
         observation, reward, done, info = env.step(action[0][0])
         reward = Tensor([reward])
+        print(reward[0])
 
         if not done:
             next_state = cur_state-prepro(observation)
         else:
             next_state = None
 
-        memory.push(convert_state(cur_state), action, convert_state(next_state), reward)
+        memory.push(convert_state(cur_state), action, convert_state(next_state) if type(next_state) != type(None) else None, reward)
         prev_state = cur_state
         cur_state = next_state
 
