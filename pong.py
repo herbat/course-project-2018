@@ -121,7 +121,6 @@ def optimize_model():
 
 
 def convert_state(state):
-    print(type(state))
     return Tensor(np.expand_dims(np.expand_dims(state, axis=0), axis=0))
 
 
@@ -220,7 +219,7 @@ for i_episode in range(num_episodes):
             next_state = cur_state-prepro(observation)
         else:
             next_state = None
-
+        print(type(cur_state), type(next_state))
         memory.push(convert_state(cur_state), action, convert_state(next_state), reward)
         prev_state = cur_state
         cur_state = next_state
