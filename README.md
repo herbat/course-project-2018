@@ -3,7 +3,11 @@ My 2018 Neural Networks Course Project at Pazmny Peter Catholic University ITK i
 
 ### History
 
-In 2013, a London-based AI startup called DeepMind published an article which was featured in the Nature magazine. The article can be found [here](https://www.nature.com/articles/nature14236). 
+In 2013, a London-based AI startup called DeepMind published an article which was featured in the Nature magazine. The article can be found [here](https://www.nature.com/articles/nature14236). This learning algorithm is based on two concepts: trial-and-error process of most human and mammal specimens when learning, and the reinforcement mechanism formulated by Bellman - with the purpose to help dynamic programming. These two ideas combined resulted in an algorithm which can mimic the learning mechanism of humans.
+
+First of all, we have to let the network - also called agent in RL - 'try', and give it rewards. This means giving a state input to the network and reading the output as an action, then simulating the next state. Repeating this, the agent will slowly map certain actions to certain states as most rewarding. This can be described as approximating the Q function(hence the name), which describes the optimal action for every state. 
+
+Reinforcement learning is gaining more and more interest among neural network experts, since it can lead to General Artifical Intelligence. Why? Because the agent will do the right thing in most states, without actually knowing what states mean, so an agent working well will be able to learn other tasks as well - or mathematically speaking, approximate different Q functions -, without having to be modified significantly.
 
 ### My usage
 
@@ -21,7 +25,7 @@ The model I used is a simplified version of what DeepMind used;
 
   - one 2D convolutional layer with 1 channel in and 16 channels out
   - one 2D convolutional layer with 16 channels in and 32 channles out 
-  - one fully connected layer with 64 inputs and 5 neurons
+  - one fully connected layer with 96 inputs and 3 neurons
 
 I used the ReLU activation function across the model.
 

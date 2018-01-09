@@ -49,7 +49,7 @@ class Tetris():
         self.height = HEIGHT
         self.speed  = 2
         self.cstep  = 0
-        self.state  = np.zeros((self.height, self.width), np.uint8)
+        self.state  = np.zeros((self.height, self.width))
         self.nomove = False
         self.reward = 0
         self.points = 0
@@ -386,7 +386,7 @@ Transition = namedtuple('Transition',
 # INIT ----------------------------------------------------------------
 
 game = Tetris()
-model = DQN() # torch.load('dqn_chechpoint.pth')
+model = torch.load('/home/itkdeeplearn/herat1/course-project-2018/dqn_checkpoint.pth')
 
 if use_cuda:
     model.cuda()

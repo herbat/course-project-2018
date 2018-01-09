@@ -168,7 +168,7 @@ def prepro(I):
     I[I == 144] = 0  # erase background (background type 1)
     I[I == 109] = 0  # erase background (background type 2)
     I[I != 0] = 1  # everything else (paddles, ball) just set to 1
-    return I.astype(np.float32)
+    return I.astype(np.float)
 
 #
 # def plot_points(ep):
@@ -188,6 +188,7 @@ def prepro(I):
 # rmsprop_cache = {k: np.zeros_like(v) for k, v in model.weights().items()}
 
 model = DQN()
+
 memory = ReplayMemory(10000)
 steps_done = 0
 
@@ -199,7 +200,7 @@ observation = env.reset()
 prev_state = None #previous screen
 xs, hs, dlogps, drs = [], [], [], []
 reward_sum = 0
-num_episodes = 10000
+num_episodes = 5000
 episode_points = []
 optimizer = optim.RMSprop(model.parameters(), lr=0.01)
 record = False
@@ -210,11 +211,9 @@ for i_episode in range(num_episodes):
     cur_state = prepro(observation) #current state
     if i_episode % 1 == 0: record = True
     for t in count():
-
         action = select_action(convert_state(prev_state-cur_state))
-        observation, reward, done, info = env.step(action[0][0])
+        observation, reward, done, info = env.step(action[0][0]+2)
         reward = Tensor([reward])
-        print(reward[0])
 
         if not done:
             next_state = cur_state-prepro(observation)
@@ -225,22 +224,20 @@ for i_episode in range(num_episodes):
         prev_state = cur_state
         cur_state = next_state
 
-        optimize_model()
-
+        if reward[0] != 0: optimize_model()
+        reward_sum += reward[0]
         if done:
-            reward_sum += reward
+            episode_points.append(reward_sum)
             if record:
                 print('Reward sum over 20 games: {}, episode {}'.format(reward_sum, i_episode))
                 record = False
-                episode_points.append(reward_sum)
-                rewards = 0
+                reward_sum = 0
                 # plot_points()
 
             observation = env.reset()
             break
 
 torch.save(model, path)
-
 # Policy gradient method:
 #
 # while True:
