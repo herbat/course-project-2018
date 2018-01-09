@@ -227,12 +227,12 @@ for i_episode in range(num_episodes):
         optimize_model()
 
         if done:
-            reward_sum += reward
+            reward_sum += reward[0]
             if record:
                 print('Reward sum over 20 games: {}, episode {}'.format(reward_sum, i_episode))
                 record = False
                 episode_points.append(reward_sum)
-                rewards = 0
+                reward_sum = 0
                 # plot_points()
 
             observation = env.reset()
