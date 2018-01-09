@@ -30,7 +30,7 @@ gamma = 0.99  # discount factor for reward
 decay_rate = 0.99  # decay factor for RMSProp leaky sum of grad^2
 EPS_START = 0.99
 EPS_END = 0.05
-EPS_DECAY = 200
+EPS_DECAY = 2000
 render = False
 D = 80 * 80
 
@@ -61,6 +61,10 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
+    def push_arr(self, arr, r):
+        for i in arr:
+            self.memory.append(Transition(i.state, i.action, i.next_state, r))
+
 
 class DQN(nn.Module):
 
@@ -69,15 +73,14 @@ class DQN(nn.Module):
         self.conv1 = nn.Conv2d(1, 16, kernel_size=4, stride=2)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
         self.conv3 = nn.Conv2d(32, 32, kernel_size=4, stride=2)
-        self.lin1  = nn.Linear(2048, 64)
-        self.fc = nn.Linear(64, 2)
+        self.fc = nn.Linear(2048, 2)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-        x = F.relu(self.lin1(x.view(x.size(0), -1)))
-        return F.softmax(self.fc(x))
+        x = F.sigmoid(self.fc(x.view(x.size(0), -1)))
+        return x
 
     def get_weights(self):
         return self.conv2.weight.data.var(1)
@@ -90,6 +93,7 @@ def select_action(state):
     steps_done += 1
     if sample > eps_threshold:
         pred = model(Variable(state, volatile=True).type(FloatTensor)).data.max(1)[1].view(1, 1)
+        if steps_done % 10000 == 0: print(pred)
         return pred
     else:
         return LongTensor([[random.randrange(2)]])
@@ -181,7 +185,6 @@ def prepro(I):
 #
 #     plt.pause(0.001)  # pause a bit so that plots are updated
 
-
 # model and rmsmemory init
 # model = PG()
 # grad_buffer = {k: np.zeros_like(v) for k, v in model.weights().items()}
@@ -202,7 +205,7 @@ xs, hs, dlogps, drs = [], [], [], []
 reward_sum = 0
 num_episodes = 5000
 episode_points = []
-optimizer = optim.RMSprop(model.parameters(), lr=0.01)
+optimizer = optim.RMSprop(model.parameters(), lr=0.0001)
 record = False
 
 for i_episode in range(num_episodes):
@@ -210,6 +213,7 @@ for i_episode in range(num_episodes):
     # noinspection PyRedeclaration
     cur_state = prepro(observation) #current state
     if i_episode % 1 == 0: record = True
+    tmp_memories =[]
     for t in count():
         action = select_action(convert_state(prev_state-cur_state))
         observation, reward, done, info = env.step(action[0][0]+2)
@@ -217,15 +221,22 @@ for i_episode in range(num_episodes):
 
         if not done:
             next_state = cur_state-prepro(observation)
+
         else:
+
             next_state = None
 
-        memory.push(convert_state(cur_state), action, convert_state(next_state) if type(next_state) != type(None) else None, reward)
+        tmp_memories.append(Transition(convert_state(cur_state), action, convert_state(next_state) if type(next_state) != type(None) else None, reward))
+
         prev_state = cur_state
         cur_state = next_state
 
-        if reward[0] != 0: optimize_model()
-        reward_sum += reward[0]
+        if reward[0] != 0:
+            optimize_model()
+            memory.push_arr(tmp_memories, reward)
+            tmp_memories = []
+            reward_sum += reward[0]
+
         if done:
             episode_points.append(reward_sum)
             if record:
