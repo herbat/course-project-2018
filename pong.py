@@ -141,7 +141,7 @@ for i_episode in range(num_episodes):
             advantage = discount_rewards(np.asarray(rewards))
             tmp = np.full(len(labels), fill_value=1)
             labels = tmp - labels if reward == -1 else labels
-            optimize_model(preds, np.asarray(labels))
+            optimize_model(np.asarray(preds, dtype=np.float), np.asarray(labels, dtype=np.float))
             labels = []
             preds = []
             episode_points.append(reward_sum)
