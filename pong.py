@@ -7,8 +7,31 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
-from torch.distributions import Categorical
 
+class Categorical():
+
+    def __init__(self, probs):
+        if probs.dim() != 1 and probs.dim() != 2:
+            # TODO: treat higher dimensions as part of the batch
+            raise ValueError("probs must be 1D or 2D")
+        self.probs = probs
+
+    def sample(self):
+        return torch.multinomial(self.probs, 1, True).squeeze(-1)
+
+    def sample_n(self, n):
+        if n == 1:
+            return self.sample().expand(1, 1)
+        else:
+            return torch.multinomial(self.probs, n, True).t()
+
+    def log_prob(self, value):
+        p = self.probs / self.probs.sum(-1, keepdim=True)
+        if value.dim() == 1 and self.probs.dim() == 1:
+            # special handling until we have 0-dim tensor support
+            return p.gather(-1, value).log()
+
+        return p.gather(-1, value.unsqueeze(-1)).squeeze(-1).log()
 
 use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
@@ -24,6 +47,8 @@ gamma = 0.99
 decay_rate = 0.99
 BATCH_SIZE = 5
 D = 80 * 80
+CONVNETS = False
+
 
 def discount_rewards(r):
   discounted_r = np.zeros_like(r)
@@ -37,33 +62,41 @@ class PG(nn.Module):
 
     def __init__(self):
         super(PG, self).__init__()
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=4, stride=2)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=4, stride=2)
-        self.lin = nn.Linear(2048, 256)
-        self.out = nn.Linear(256, 3)
+
+        if CONVNETS:
+            self.conv1 = nn.Conv2d(1, 16, kernel_size=4, stride=2, padding=1)
+            self.conv2 = nn.Conv2d(16, 32, kernel_size=4, stride=2, padding=1)
+            self.conv3 = nn.Conv2d(32, 32, kernel_size=4, stride=2, padding=1)
+            self.lin = nn.Linear(3200, 200)
+        else:
+            self.lin = nn.Linear(6400, 200)
+
+        self.out = nn.Linear(200, 2)
         self.outputs = []
         self.rewards = []
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.lin(x.view(x.size(0), -1)))
+        if CONVNETS:
+            x = F.relu(self.conv1(x))
+            x = F.relu(self.conv2(x))
+            x = F.relu(self.conv3(x))
+            x = F.relu(self.lin(x.view(x.size(0), -1)))
+        else:
+            x = F.relu(self.lin(x))
+
         x = F.softmax(self.out(x), dim=1)
         return x
 
     def get_weights(self):
         return self.conv2.weight.data.var(1)
 
-
 def select_action(state):
-    probs = model(Variable(state))
-    m = Categorical(probs)
+    state = Tensor(np.expand_dims(np.expand_dims(state, axis=0), axis=0)) if CONVNETS else torch.from_numpy(state).float().unsqueeze(0)
+    pred = model(Variable(state))
+    m = Categorical(pred)
     action = m.sample()
     model.outputs.append(m.log_prob(action))
-    return action.data[0]
-
+    return 2 if pred.data[0][0] < np.random.uniform() else 3
 
 def optimize_model():
 
@@ -76,24 +109,22 @@ def optimize_model():
 
     optimizer.zero_grad()
     loss = torch.cat(loss).sum()
+    print('loss calculated: {}'.format(loss.data[0]))
     loss.backward()
+    print('backprop done')
     optimizer.step()
+    print('optimizing done')
 
     del model.outputs[:]
     del model.rewards[:]
 
-def convert_state(state):
-    return Tensor(np.expand_dims(np.expand_dims(state, axis=0), axis=0))
-
-
 def prepro(I):
-    """ prepro 210x160x3 uint8 frame into 6400 (80x80) 1D float vector """
     I = I[35:195]  # crop
     I = I[::2, ::2, 0]  # downsample by factor of 2
     I[I == 144] = 0  # erase background (background type 1)
     I[I == 109] = 0  # erase background (background type 2)
     I[I != 0] = 1  # everything else (paddles, ball) just set to 1
-    return I.astype(np.float)
+    return I.astype(np.float) if CONVNETS else I.astype(np.float).ravel()
 
 #
 # def plot_points(ep):
@@ -129,8 +160,8 @@ for i_episode in range(num_episodes):
 
     for t in count():
 
-        action = select_action(convert_state(prev_state-cur_state)) #select action probabilistically
-        observation, reward, done, info = env.step(action+1) #save info
+        action = select_action(prev_state-cur_state) #select action probabilistically
+        observation, reward, done, info = env.step(action) #save info
 
         model.rewards.append(reward)
 
