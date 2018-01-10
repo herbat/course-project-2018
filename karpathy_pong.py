@@ -126,8 +126,8 @@ while True:
 
         # boring book-keeping
         running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
-        print('resetting env. episode reward total was {}'.format(reward_sum))
-        if episode_number % 100 == 0: pickle.dump(model, open('save.p', 'wb'))
+        print('episode {}, reward total was {}'.format(episode_number, reward_sum))
+        if episode_number % 100 == 0: pickle.dump(model, open('/home/itkdeeplearn/herat1/save.p', 'wb'))
         reward_sum = 0
         observation = env.reset()  # reset env
         prev_x = None
