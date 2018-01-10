@@ -63,8 +63,9 @@ Currently, I'm using a multi-layer preceptron model with policy gradient algorit
 
 ![visualization_3](https://raw.githubusercontent.com/herbat/course-project-2018/master/vis3.png)
 
-
 ![visualization_3](https://raw.githubusercontent.com/herbat/course-project-2018/master/vis101.png)
+
+It is clear that the network recognises the other paddle and the ball, although the weights are still noisy. I will train this model further tonight, and will publish results tomorrow. 
 
 
 
