@@ -100,13 +100,25 @@ def select_action(state):
     return 2 if pred.data[0][0] < np.random.uniform() else 3
 
 def optimize_model():
-
-    advantage = Tensor(discount_rewards(np.asarray(model.rewards)))
-    advantage = (advantage - advantage.mean())/(advantage.std() + np.finfo(np.float32).eps)
+    R = 0
     loss = []
+    rewards = []
+    for r in model.rewards[::-1]:
+        R = r + gamma * R
+        rewards.insert(0, R)
+    rewards = torch.Tensor(rewards)
 
-    for o, a in zip(model.outputs, advantage):
-        loss.append(-o * a)
+    rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+
+    for log_prob, reward in zip(model.outputs, rewards):
+        loss.append(-log_prob * reward)
+    #
+    # advantage = Tensor(discount_rewards(np.asarray(model.rewards)))
+    # advantage = (advantage - advantage.mean())/(advantage.std() + np.finfo(np.float32).eps)
+    # loss = []
+    #
+    # for o, a in zip(model.outputs, advantage):
+    #     loss.append(-o * a)
 
     optimizer.zero_grad()
     loss = torch.cat(loss).sum()
