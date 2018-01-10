@@ -84,7 +84,7 @@ class PG(nn.Module):
         else:
             x = F.relu(self.lin(x))
 
-        x = F.softmax(self.out(x), dim=1)
+        x = F.softmax(self.out(x))
         return x
 
     def get_weights(self):
