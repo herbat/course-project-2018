@@ -57,5 +57,14 @@ I used the optimization algorithm of Q learning without any bells or whisthles. 
 
 The results weren't very satisfying after a couple hours of training, but this time isn't enough for a DQN to learn a game properly.
 
+## Visualization
+
+Currently, I'm using a multi-layer preceptron model with policy gradient algorithm(found in `karpathy_pong.py`). I will later try to learn Tetris with this network, but currently I visualized the network after 1500 episodes of Atari Pong:
+
+![visualization_3](https://raw.githubusercontent.com/herbat/course-project-2018/master/visu3.png)
+
+
+![visualization_3](https://raw.githubusercontent.com/herbat/course-project-2018/master/visu101.png)
+
 
 
