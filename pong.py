@@ -93,7 +93,6 @@ class PG(nn.Module):
 def select_action(state):
     state = Tensor(np.expand_dims(np.expand_dims(state, axis=0), axis=0)) if CONVNETS else torch.from_numpy(state).float().unsqueeze(0)
     if use_cuda: state = state.cuda()
-    print(type(state))
     pred = model(Variable(state))
     m = Categorical(pred)
     action = m.sample()
