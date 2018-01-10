@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torch.distributions import Categorical
+
 
 use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
@@ -17,16 +19,10 @@ Tensor = FloatTensor
 path = '/home/itkdeeplearn/herat1/pong_dqn.pth'
 
 # hyperparameters
-# H = 200  # number of hidden layer neurons
-# batch_size = 10  # every how many episodes to do a param update?
-# learning_rate = 1e-4
-BATCH_SIZE = 64
-gamma = 0.99  # discount factor for reward
-decay_rate = 0.99  # decay factor for RMSProp leaky sum of grad^2
-EPS_START = 0.99
-EPS_END = 0.05
-EPS_DECAY = 2000
-render = False
+l_r = 1e-3
+gamma = 0.99
+decay_rate = 0.99
+BATCH_SIZE = 5
 D = 80 * 80
 
 def discount_rewards(r):
@@ -45,14 +41,16 @@ class PG(nn.Module):
         self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
         self.conv3 = nn.Conv2d(32, 32, kernel_size=4, stride=2)
         self.lin = nn.Linear(2048, 256)
-        self.out = nn.Linear(256, 1)
+        self.out = nn.Linear(256, 3)
+        self.outputs = []
+        self.rewards = []
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = F.relu(self.lin(x.view(x.size(0), -1)))
-        x = F.sigmoid(self.out(x))
+        x = F.softmax(self.out(x), dim=1)
         return x
 
     def get_weights(self):
@@ -60,17 +58,29 @@ class PG(nn.Module):
 
 
 def select_action(state):
-    pred = model(Variable(state, volatile=True).type(FloatTensor)).data[0][0]
-    return 2 if np.random.uniform() < pred else 3, pred
+    probs = model(Variable(state))
+    m = Categorical(probs)
+    action = m.sample()
+    model.outputs.append(m.log_prob(action))
+    return action.data[0]
 
 
-def optimize_model(outputs, labels):
-    loss = F.smooth_l1_loss(Variable(Tensor(outputs), requires_grad=True), Variable(Tensor(labels)))
+def optimize_model():
+
+    advantage = Tensor(discount_rewards(np.asarray(model.rewards)))
+    advantage = (advantage - advantage.mean())/(advantage.std() + np.finfo(np.float32).eps)
+    loss = []
+
+    for o, a in zip(model.outputs, advantage):
+        loss.append(-o * a)
 
     optimizer.zero_grad()
+    loss = torch.cat(loss).sum()
     loss.backward()
     optimizer.step()
 
+    del model.outputs[:]
+    del model.rewards[:]
 
 def convert_state(state):
     return Tensor(np.expand_dims(np.expand_dims(state, axis=0), axis=0))
@@ -96,24 +106,20 @@ def prepro(I):
 #
 #     plt.pause(0.001)  # pause a bit so that plots are updated
 
-# model and rmsmemory init
-
 model = PG()
 
 if use_cuda:
     model.cuda()
 
-#
+# environment and basic shit
 env = gym.make("Pong-v0")
 observation = env.reset()
 prev_state = None #previous screen
 reward_sum = 0
 num_episodes = 5000
 episode_points = []
-optimizer = optim.RMSprop(model.parameters(), lr=0.001)
-
-preds   = []
-labels  = []
+optimizer = optim.RMSprop(model.parameters(), lr=l_r, weight_decay=decay_rate)
+# calculating the policy gradient
 rewards = []
 
 for i_episode in range(num_episodes):
@@ -122,28 +128,23 @@ for i_episode in range(num_episodes):
     cur_state = prepro(observation) #current state
 
     for t in count():
-        action, pred = select_action(convert_state(prev_state-cur_state)) #select action probabilistically
-        observation, reward, done, info = env.step(action) #save info
 
-        preds.append(pred)
-        labels.append(1 if action == 2 else 0)
-        rewards.append(reward)
+        action = select_action(convert_state(prev_state-cur_state)) #select action probabilistically
+        observation, reward, done, info = env.step(action+1) #save info
+
+        model.rewards.append(reward)
 
         next_state = cur_state-prepro(observation) if not done else None #get next state if not done
         prev_state = cur_state
         cur_state = next_state
 
-        if reward != 0:
-
-            reward_sum += reward
+        if reward != 0: reward_sum += reward
 
         if done: # if done, print rewards
-            advantage = discount_rewards(np.asarray(rewards))
-            tmp = np.full(len(labels), fill_value=1)
-            labels = tmp - labels if reward == -1 else labels
-            optimize_model(np.asarray(preds, dtype=np.float), np.asarray(labels, dtype=np.float))
-            labels = []
-            preds = []
+            if i_episode % BATCH_SIZE == 0 and i_episode>0: # change policy gradient
+                optimize_model()
+                rewards = []
+
             episode_points.append(reward_sum)
             print('Reward sum over 20 games: {}, episode {}'.format(reward_sum, i_episode))
             reward_sum = 0
