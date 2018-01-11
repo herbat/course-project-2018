@@ -57,6 +57,18 @@ I used the optimization algorithm of Q learning without any bells or whisthles. 
 
 The results weren't very satisfying after a couple hours of training, but this time isn't enough for a DQN to learn a game properly.
 
+## A new approach: policy gradients
+
+As suggested, I did some reading up on policy gradient reinforcement learning, which is basically a modified version of supervised learning. This type of learning is based on modifying the gradients of the network by the __advantage__, which is calculated from the actions and their eventual reward. The theory is simple, and the implementation isn't very complicated either, but PyTorch has some bugs unresolved, which prevent this network from being implemented.
+
+### Karpathy's approach
+
+First, to understand the basics of policy gradient reinforcement learning, I used Andrej Karpathy's code, which was written without any libraries. In this code, all the inner workings, such as backpropagation of the advantage-corrected loss can be understood. After training this network with modified learning rate, it could beat the AI of Pong about 50% of the time. 
+
+### Improvements in reinforcement learning
+
+Since then, many new approaches for reinforcement learning gained popularity, such as Actor-critic networks and deep deterministic policy gradient networks.
+
 ## Visualization
 
 Currently, I'm using a multi-layer preceptron model with policy gradient algorithm(found in `karpathy_pong.py`). I will later try to learn Tetris with this network, but currently I visualized the network after 1500 episodes of Atari Pong:
@@ -66,6 +78,7 @@ Currently, I'm using a multi-layer preceptron model with policy gradient algorit
 ![visualization_3](https://raw.githubusercontent.com/herbat/course-project-2018/master/vis101.png)
 
 It is clear that the network recognises the other paddle and the ball, although the weights are still noisy. I will train this model further tonight, and will publish results tomorrow. 
+Update: the weights of the first layer didn't change much, so it's probable that the output layers weights improved to gain a better understanding of what's happening.
 
 
 
